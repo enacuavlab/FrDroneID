@@ -4,6 +4,13 @@
 
 #define PPRZ_STX 0x99
 
+const uint8_t ID_TYPE = 2;
+
+// EDIT the 2 following fields to match your manufacturer ID and the tracker model. (3 chars each)
+const char tracker_manufacturer[4] = "000";
+const char tracker_model[4] = "000";
+char tracker_serial[25] = {0};
+
 extern "C" {
   #include "user_interface.h"
 }
@@ -130,10 +137,18 @@ create_beacon_packet(char *ssid, uint8_t id, uint8_t *buff, uint8_t *uas_payload
     
     element = (wifi_ieee80211_element_t *) (buff + len);
     element->element_id = 0xDD; // id of Vendor Specific stuff
-    element->len = uas_len + 4; // OUI/CID: 3 bytes, VS Type: 1 byte, uas_payload: uas_len bytes
+    element->len = uas_len + 4 + 30 + 2; // [OUI/CID(3)], [VS Type(1)], [trackerId: type(1), len(1), ID(30)] , [uas_payload(uas_len)]
     memcpy(element->variable, (const uint8_t[]) {0x6A, 0x5C, 0x35}, 3);     //CID: company ID : 6A-5C-35
     memcpy(element->variable + 3, (const uint8_t[]) {0x01}, 1);             //VS Type: protocol number, fixed to 0x01.
-    memcpy(element->variable + 4, uas_payload, uas_len);  //uas payload
+    
+    // Add field "tracker ID".
+    element->variable[4] = ID_TYPE;
+    element->variable[5] = 30;
+    memcpy(element->variable + 6, tracker_manufacturer, 3);
+    memcpy(element->variable + 9, tracker_model, 3);
+    memcpy(element->variable + 12, tracker_serial, 24);
+
+    memcpy(element->variable + 36, uas_payload, uas_len);  //uas payload
     len += sizeof(wifi_ieee80211_element_t) + element->len;
 
     return len;
@@ -167,6 +182,8 @@ void setup() {
   wifi_promiscuous_enable(1); 
   uint32_t chip_id = system_get_chip_id();
   sprintf(ssid, "pprz_beacon_%010X", chip_id);
+  sprintf(tracker_serial, "%024X", chip_id);
+  
 }
 
 
