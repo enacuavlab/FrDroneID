@@ -162,10 +162,7 @@ emit_beacon(char *ssid, uint8_t id, uint8_t *uas_payload, uint8_t uas_len) {
 
     len = create_beacon_packet(ssid, id, buff, uas_payload, uas_len, sizeof(buff));
     //Serial.println(len);
-    for (uint8_t i = 0; i < 1; ++i) { // sending the same packet 5 times
-        wifi_send_pkt_freedom(buff, len, 1);
-        delay(50);
-    }
+    wifi_send_pkt_freedom(buff, len, 1);
 }
 
 char ssid[30];// = "pprz_beacon_123";
