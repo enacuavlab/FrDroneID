@@ -53,6 +53,21 @@ char* read_SSID(uint8_t* buf, uint8_t ssid_len) {
   return ssid;
 }
 
+#define fill_swap32(dst) \
+    int32_t* be = (int32_t*) buf+offset+2; \
+    dst = __builtin_bswap32(*be);\
+    payload.types |= (1<<field_type);
+
+#define fill_swap16(dst) \
+    int16_t* be = (int16_t*) buf+offset+2; \
+    dst = __builtin_bswap16(*be);\
+    payload.types |= (1<<field_type);
+    
+#define fill_swap16u(dst) \
+    uint16_t* be = (uint16_t*) buf+offset+2; \
+    dst = __builtin_bswap16(*be);\
+    payload.types |= (1<<field_type);
+
 struct uas_raw_payload read_uav_info(uint8_t* buf, uint8_t vs_type, uint8_t len) {
   
   struct uas_raw_payload payload = {0};   //init empty payload
@@ -66,57 +81,44 @@ struct uas_raw_payload read_uav_info(uint8_t* buf, uint8_t vs_type, uint8_t len)
       break;
     }
     
-    void *dst = NULL;
-    int size = 0;
-    switch(field_type) {    //get address of the field
-      case UAS_ID_FR:
-        dst = &payload.id_fr;
-        size = sizeof(payload.id_fr) - 1; //keep room for the \0 (end of string)
-        break;
-      case UAS_LAT:
-        dst = &payload.lat;
-        size = sizeof(payload.lat);
-        break;
-      case UAS_LON:
-        dst = &payload.lon;
-        size = sizeof(payload.lon);
-        break;
-      case UAS_HMSL:
-        dst = &payload.hmsl;
-        size = sizeof(payload.hmsl);
-        break;
-      case UAS_HAGL:
-        dst = &payload.hagl;
-        size = sizeof(payload.hagl);
-        break;
-      case UAS_LAT_TO:
-        dst = &payload.lat_to;
-        size = sizeof(payload.lat_to);
-        break;
-      case UAS_LON_TO:
-        dst = &payload.lon_to;
-        size = sizeof(payload.lon_to);
-        break;
-      case UAS_H_SPEED:
-        dst = &payload.h_speed;
-        size = sizeof(payload.h_speed);
-        break;
-      case UAS_ROUTE:
-        dst = &payload.route;
-        size = sizeof(payload.route);
-        break;
-      case UAS_PROTOCOL_VERSION:    // handle it ? For now only 1 version exists
-        size = 0;
-        break;
-      case UAS_ID_ANSI_UAS:         // not supported, as 
-        size = 0;
-        break;
-    }
-    if(dst != NULL && field_len <= size) {      // check if received length match struct field length
-      memcpy(dst, buf+offset+2, field_len);    // copy data in structure
+
+    if(field_type == UAS_ID_FR) {
+      assert(field_len == 30);
+      memcpy(payload.id_fr, buf+offset+2, field_len);    // copy data in structure
       payload.types |= (1<<field_type);         // set field flag
-    } else {
-      printf("Field length is longer than sizeof(field) !!!!\n");
+    } else if(field_type == UAS_LAT) {
+      assert(field_len == 4);
+      fill_swap32(payload.lat)
+    } else if(field_type == UAS_LON) {
+      assert(field_len == 4);
+      fill_swap32(payload.lon)
+    } else if(field_type == UAS_HMSL) {
+      assert(field_len == 2);
+      fill_swap16(payload.hmsl)
+    } else if(field_type == UAS_HAGL) {
+      assert(field_len == 2);
+      fill_swap16(payload.hagl)
+    } else if(field_type == UAS_LAT_TO) {
+      assert(field_len == 4);
+      fill_swap32(payload.lat_to)
+    } else if(field_type == UAS_LON_TO) {
+      assert(field_len == 4);
+      fill_swap32(payload.lon_to)
+    } else if(field_type == UAS_H_SPEED) {
+      assert(field_len == 1);
+      payload.h_speed = buf[offset+2];
+      payload.types |= (1<<field_type);
+    } else if(field_type == UAS_ROUTE) {
+      assert(field_len == 2);
+      fill_swap16u(payload.route)
+    } else if(field_type == UAS_PROTOCOL_VERSION) {
+      assert(field_len == 1);
+      assert(buf[offset+2] == 0x01);
+    } else if(field_type == UAS_ID_ANSI_UAS) {
+      if(field_len <= 30) {
+        memcpy(payload.id_fr, buf+offset+2, field_len);
+        payload.types |= (1<<UAS_ID_ANSI_UAS);
+      }
     }
     
     offset += field_len+2;
