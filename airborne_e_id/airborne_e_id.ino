@@ -7,6 +7,7 @@
 const uint8_t ID_TYPE = 2;
 
 // EDIT the 2 following fields to match your manufacturer ID and the tracker model. (3 chars each)
+// 000 is reserved for DIY beacons, so you can keep it.
 const char tracker_manufacturer[4] = "000";
 const char tracker_model[4] = "000";
 char tracker_serial[25] = {0};
@@ -169,17 +170,28 @@ char ssid[30];// = "pprz_beacon_123";
 struct normal_parser_t parser;
 unsigned char last_payload[256];
 int msg_len = 0;
-unsigned long msg_time = 0;
-unsigned long send_time = 0;
 
 void setup() {
   delay(500);
   Serial.begin(115200);
-  wifi_set_opmode(STATION_MODE);
-  wifi_promiscuous_enable(1); 
   uint32_t chip_id = system_get_chip_id();
   sprintf(ssid, "pprz_beacon_%010X", chip_id);
   sprintf(tracker_serial, "%024X", chip_id);
+
+  //wifi_set_opmode(STATION_MODE);
+  //wifi_promiscuous_enable(1); 
+
+  WiFi.mode(WIFI_OFF);
+  
+  // set default AP settings
+  WiFi.softAP(ssid, nullptr, 6, false, 0); // ssid, pwd, channel, hidden, max_cnx, 
+  WiFi.setOutputPower(20.5); // max 20.5dBm
+  
+  softap_config current_config;
+  wifi_softap_get_config(&current_config);
+
+  current_config.beacon_interval = 1000;
+  wifi_softap_set_config(&current_config);
   
 }
 
@@ -193,14 +205,10 @@ void loop() {
     if (parse_single_byte(inbyte)) { // if parser.payload message detected
       memcpy(last_payload, parser.payload, parser.length - 4);
       msg_len = parser.length - 4;
-      msg_time = millis();
       Serial.println("MSG RCV");
+      //emit beacon frame as soon as the message is received
+      emit_beacon(ssid, 1, last_payload, msg_len);
     }
-  }
-  
-  if((millis() - msg_time < 2000) && (millis() - send_time > 100)) {
-    emit_beacon(ssid, 1, last_payload, msg_len);
-    send_time = millis();
   }
   
 }
