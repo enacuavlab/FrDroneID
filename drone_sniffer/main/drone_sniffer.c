@@ -93,6 +93,14 @@ struct uas_raw_payload read_uav_info(uint8_t *buf, uint8_t vs_type, uint8_t len)
       memcpy(payload.id_fr, buf + offset + 2, field_len); // copy data in structure
       payload.types |= (1 << field_type);                 // set field flag
     }
+    else if (field_type == UAS_ID_ANSI_UAS)
+    {
+      // Max lenght is 4 (MFR) + 1 (len) + 15 (MFR's SN) = 20
+      assert(field_len <= 20);
+      memcpy(payload.id_fr, buf + offset + 2, field_len);
+      payload.id_fr[field_len] = '\0';
+      payload.types |= (1 << UAS_ID_ANSI_UAS);
+    }
     else if (field_type == UAS_LAT)
     {
       assert(field_len == 4);
@@ -138,36 +146,6 @@ struct uas_raw_payload read_uav_info(uint8_t *buf, uint8_t vs_type, uint8_t len)
     {
       assert(field_len == 1);
       assert(buf[offset + 2] == 0x01);
-    }
-    else if (field_type == UAS_ID_ANSI_UAS)
-    {
-      if (field_len <= 30)
-      {
-        uint8_t *SN = (buf + offset + 2);
-        memcpy(payload.id_fr, SN, field_len);
-        // according to standard ANSI/CTA-2063-A,
-        // the serial number is composed of : [manufacturer code][lenght][manufacturer's serial number]
-        // the manufacturer code is a 4 characters code
-        // the lenght determine the manufacturer's SN lenght, from 1 to C (lenght from 1 to 15)
-        // the manufacturer's serial number, matching the previous lenght
-
-        // get the MFR's SN lenght
-        size_t lenght;
-        if (SN[4] <= '9')
-        {
-          lenght = SN[4] - '0';
-        }
-        else
-        {
-          lenght = SN[4] - 'A' + 10;
-        }
-
-        assert(lenght <= 15);
-
-        // put an \0 at the end of the SN. (5: MFR code + lenght char)
-        SN[lenght + 5] = '\0';
-        payload.types |= (1 << UAS_ID_ANSI_UAS);
-      }
     }
 
     offset += field_len + 2;
