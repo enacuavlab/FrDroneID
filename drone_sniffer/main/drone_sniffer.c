@@ -156,10 +156,13 @@ struct uas_raw_payload read_uav_info(uint8_t *buf, uint8_t vs_type, uint8_t len)
 
 void display_info(struct uas_raw_payload *info)
 {
-  if (info->types & (1 << UAS_ID_FR) ||
-      info->types & (1 << UAS_ID_ANSI_UAS))
+  if (info->types & (1 << UAS_ID_FR))
   {
     printf("FR_ID: %s\n", info->id_fr);
+  }
+  if (info->types & (1 << UAS_ID_ANSI_UAS))
+  {
+    printf("ANSI SN: %s\n", info->id_fr);
   }
   if (info->types & (1 << UAS_LAT))
   {
@@ -240,7 +243,6 @@ void wifi_promiscuous_cb(void *buf, wifi_promiscuous_pkt_type_t type)
           {
             struct uas_raw_payload raw_info = read_uav_info(pkt->payload + offset + 6, vs_type, len - 4);
             printf("SSID = %s\n", ssid);
-            printf("raw info received = %04X\n", raw_info.types);
             display_info(&raw_info);
           }
         }
